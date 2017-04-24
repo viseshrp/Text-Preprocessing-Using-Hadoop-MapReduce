@@ -1,6 +1,8 @@
 package com.cloud;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.regex.Pattern;
 
@@ -71,7 +73,31 @@ public class TFIDF extends Configured implements Tool {
 		job.setMapOutputKeyClass(Text.class);
 		job.setMapOutputValueClass(Text.class);
 
-		return job.waitForCompletion(true) ? 0 : 1;
+		int success = job.waitForCompletion(true) ? 0 : 1;
+		
+		// Job to convert document to a vector of top 100 TFIDFs
+		if(success == 0) {
+			Job docVectorJob = Job.getInstance(getConf(), " tfidf2 ");
+
+			docVectorJob.setJarByClass(this.getClass());
+			docVectorJob.setMapperClass(MapDocVector.class);
+			docVectorJob.setReducerClass(ReduceDocVector.class);
+
+			FileInputFormat.addInputPath(docVectorJob, new Path(args[2]));
+			FileOutputFormat.setOutputPath(docVectorJob, new Path(args[3]));
+
+			// Explicitly set key and value types of map and reduce output
+			docVectorJob.setOutputKeyClass(Text.class);
+			docVectorJob.setOutputValueClass(Text.class);
+			docVectorJob.setMapOutputKeyClass(Text.class);
+			docVectorJob.setMapOutputValueClass(Text.class);
+
+			success = docVectorJob.waitForCompletion(true) ? 0 : 1;
+
+		}
+		
+		return success;
+		
 	}
 
 	public static class Map extends Mapper<LongWritable, Text, Text, Text> {
@@ -152,4 +178,60 @@ public class TFIDF extends Configured implements Tool {
 			}
 		}
 	}
-}
+	
+	public static class MapDocVector extends Mapper<LongWritable, Text, Text, Text> {
+
+		public void map(LongWritable offset, Text lineText, Context context) throws IOException, InterruptedException {
+
+			//Split input to get filename and tfidf
+			String[] lineInputSplit = lineText.toString().split("#####"); 
+		
+			String fileNamePlusTFIDF = lineInputSplit[1];
+			
+			String[] fileNameAndTFIDFArray = fileNamePlusTFIDF.split("\\s+");
+			
+			String fileName = fileNameAndTFIDFArray[0];
+			
+			String TFIDF = fileNameAndTFIDFArray[1];
+
+			context.write(new Text(fileName), new Text(TFIDF));
+		}
+	}
+
+	public static class ReduceDocVector extends Reducer<Text, Text, Text, Text> {
+		@Override
+		public void reduce(Text word, Iterable<Text> vectorIterable, Context context)
+				throws IOException, InterruptedException {
+
+			ArrayList<Double> vectorList = new ArrayList<>();
+			
+			String finalVectorList = "";
+			
+			// Loop through postings list to accumulate and find the document
+			// frequency
+			for (Text tfidf : vectorIterable) {
+				vectorList.add(Double.valueOf(tfidf.toString()));
+			}
+			
+			Collections.sort(vectorList);
+			Collections.reverse(vectorList);
+
+			for (int i = 0; i < 100; i++) {
+				String tfidf = String.valueOf(vectorList.get(i));
+				
+				if(i==0){
+					finalVectorList += "[" + tfidf + ",";
+				} else {
+					finalVectorList += tfidf + ",";
+				}
+			}
+			
+			finalVectorList += "]";
+			
+			String output = word.toString() + "=" + finalVectorList;
+			
+			context.write(new Text(""), new Text(output));
+			
+			}
+		}
+	}
