@@ -109,6 +109,8 @@ public class TFIDF extends Configured implements Tool {
 			int documentFrequency = 0; // number of documents that contain the
 										// word
 
+			boolean isValid = false;
+
 			// Loop through postings list to accumulate and find the document
 			// frequency
 			for (Text count : postingsList) {
@@ -129,11 +131,24 @@ public class TFIDF extends Configured implements Tool {
 
 				double tfidf = termFrequency * IDF; // calculate TFIDF
 
+				String wordString = word.toString();
 				// reducer output key to include word and filename as required
-				String reducerOutputKey = word.toString() + "#####" + key;
+				String reducerOutputKey = wordString + "#####" + key;
+
+				// check if all chars in word are alphanumeric
+				for (int i = 0; i < wordString.length(); i++) {
+					if (!Character.isLetterOrDigit(wordString.charAt(i))) {
+						isValid = false;
+						break;
+					} else {
+						isValid = true;
+					}
+				}
 
 				// write to output
-				context.write(new Text(reducerOutputKey), new DoubleWritable(tfidf));
+				if (wordString.length() > 1 && isValid) // to remove punctuation
+														// and other crap
+					context.write(new Text(reducerOutputKey), new DoubleWritable(tfidf));
 			}
 		}
 	}
