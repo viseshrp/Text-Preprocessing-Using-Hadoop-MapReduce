@@ -216,7 +216,7 @@ public class TFIDF extends Configured implements Tool {
 			Collections.sort(vectorList);
 			Collections.reverse(vectorList);
 
-			for (int i = 0; i < 100; i++) {
+			for (int i = 0; i < 49; i++) {
 				String tfidf = String.valueOf(vectorList.get(i));
 				
 				if(i==0){

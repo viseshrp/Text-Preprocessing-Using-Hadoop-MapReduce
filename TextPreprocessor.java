@@ -1,0 +1,52 @@
+package com.cloud;
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+
+public class TextPreprocessor {
+
+	public static void main(String[] args) {
+		try {
+			Path pt = new Path(args[0]);
+			FileSystem fs = FileSystem.get(new Configuration());
+			BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(pt)));
+			String lineRead;
+			lineRead = br.readLine();
+			String doc = "";
+			
+			boolean value = false;
+			while (lineRead != null) {
+				
+				if(value) {
+				doc += lineRead;
+				
+				}
+				value = true;
+				lineRead = br.readLine();
+			}
+
+			String[] linesArray = doc.split("\\.");
+
+			Path pt2 = new Path(args[1]);
+			BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(fs.create(pt2, true)));
+			// TO append data to a file, use fs.append(Path f)
+			
+			for (String line : linesArray) {
+				bw.write(line+".");
+				bw.newLine();
+			}
+			bw.close();
+
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+}
